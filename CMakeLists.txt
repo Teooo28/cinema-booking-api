@@ -27,6 +27,7 @@ set(SOURCES
     src/Movie2D.cpp
     src/Movie3D.cpp
     src/EventFactory.cpp
+    src/DiscountStrategy.cpp
 )
 add_executable(${PROJECT_NAME} ${SOURCES})
 

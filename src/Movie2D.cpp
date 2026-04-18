@@ -8,11 +8,15 @@ std::string Movie2D::getType() const {
 }
 
 nlohmann::json Movie2D::toJson() const {
+    double finalPrice = discountStrategy->calculatePrice(basePrice);
+
     return {
         {"id", id},
         {"title", title},
         {"duration", durationMinutes},
         {"basePrice", basePrice},
+        {"finalPrice", finalPrice},
+        {"discount", discountStrategy->getStrategyName()},
         {"type", getType()}
     };
 }
