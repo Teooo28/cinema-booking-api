@@ -2,21 +2,33 @@ cmake_minimum_required(VERSION 3.15)
 
 project(oop)
 
+cmake_policy(SET CMP0135 NEW)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Treat warnings as errors by default
+include(FetchContent)
+FetchContent_Declare(json
+  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+)
+FetchContent_MakeAvailable(json)
+
 if(DEFINED WARNINGS_AS_ERRORS)
-    # already defined
 elseif(DEFINED ENV{WARNINGS_AS_ERRORS})
     set(WARNINGS_AS_ERRORS $ENV{WARNINGS_AS_ERRORS})
 else()
     set(WARNINGS_AS_ERRORS ON)
 endif()
 
-# Main executable
-add_executable(${PROJECT_NAME} main.cpp)
+set(SOURCES
+    src/main.cpp
+    src/Event.cpp
+)
+add_executable(${PROJECT_NAME} ${SOURCES})
+
+target_include_directories(${PROJECT_NAME} PUBLIC include)
+target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json)
 
 if(GITHUB_ACTIONS)
     message("NOTE: GITHUB_ACTIONS defined")
