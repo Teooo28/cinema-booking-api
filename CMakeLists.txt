@@ -24,6 +24,8 @@ endif()
 set(SOURCES
     src/main.cpp
     src/Event.cpp
+    src/Movie2D.cpp
+    src/Movie3D.cpp
 )
 add_executable(${PROJECT_NAME} ${SOURCES})
 
