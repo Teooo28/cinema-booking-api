@@ -9,10 +9,33 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
+
+# 1. Librăria JSON
 FetchContent_Declare(json
-  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
 )
-FetchContent_MakeAvailable(json)
+
+# 2. Descărcăm manual ASIO
+FetchContent_Declare(asio
+    GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+    GIT_TAG asio-1-28-0
+)
+
+# 3. Librăria CROW
+FetchContent_Declare(Crow
+    GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
+    GIT_TAG v1.2.0
+)
+
+set(CROW_BUILD_EXAMPLES OFF CACHE BOOL "Skip Crow Examples" FORCE)
+set(CROW_BUILD_TESTS OFF CACHE BOOL "Skip Crow Tests" FORCE)
+
+FetchContent_MakeAvailable(json asio)
+
+set(ASIO_INCLUDE_DIR ${asio_SOURCE_DIR}/asio/include CACHE PATH "ASIO include dir" FORCE)
+
+FetchContent_MakeAvailable(Crow)
 
 if(DEFINED WARNINGS_AS_ERRORS)
 elseif(DEFINED ENV{WARNINGS_AS_ERRORS})
@@ -32,7 +55,7 @@ set(SOURCES
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_include_directories(${PROJECT_NAME} PUBLIC include)
-target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Crow ws2_32 mswsock)
 
 if(GITHUB_ACTIONS)
     message("NOTE: GITHUB_ACTIONS defined")
