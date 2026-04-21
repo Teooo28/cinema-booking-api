@@ -5,36 +5,47 @@
 #include "EventFactory.h"
 #include "DiscountStrategy.h"
 #include "ApiResponse.h"
+#include "Exceptions.h"
 
 int main() {
-    // initializam aplicatie web (serverul)
+    // initializam aplicatia web (serverul)
     crow::SimpleApp app;
 
     // definim ruta
     CROW_ROUTE(app, "/movies")([]() {
         
-        std::vector<std::unique_ptr<Event>> schedule;
+        try {
+            std::vector<std::unique_ptr<Event>> schedule;
 
-        // generam filme
-        auto movie1 = EventFactory::createEvent("2D", 1, "Interstellar", 169, 30.0);
-        auto movie2 = EventFactory::createEvent("3D", 2, "Avatar", 192, 30.0, 10.0);
-        movie2->setDiscountStrategy(std::make_shared<StudentDiscount>());
+            // FORTAM O EROARE
+            int durataGresita = -10;
+            
+            if (durataGresita < 0) {
+                throw InvalidEventException("Durata filmului nu poate fi negativa!");
+            }
 
-        schedule.push_back(std::move(movie1));
-        schedule.push_back(std::move(movie2));
+            auto movie1 = EventFactory::createEvent("2D", 1, "Interstellar", durataGresita, 30.0);
+            schedule.push_back(std::move(movie1));
 
-        // punem datele filmelor intr-o lista JSON
-        nlohmann::json moviesArray = nlohmann::json::array();
-        for (const auto& event : schedule) {
-            moviesArray.push_back(event->toJson());
+            nlohmann::json moviesArray = nlohmann::json::array();
+            for (const auto& event : schedule) {
+                moviesArray.push_back(event->toJson());
+            }
+
+            ApiResponse<nlohmann::json> apiResponse(true, "Filme gasite", moviesArray);
+            crow::response res(apiResponse.toJson().dump());
+            res.add_header("Content-Type", "application/json");
+            return res;
+        } 
+        catch (const InvalidEventException& e) {
+            
+            ApiResponse<std::string> errorResponse(false, "Eroare de Validare", e.what());
+            
+            crow::response res(errorResponse.toJson().dump());
+            res.code = 400;
+            res.add_header("Content-Type", "application/json");
+            return res;
         }
-
-        ApiResponse<nlohmann::json> apiResponse(true, "Filmele au fost preluate cu succes", moviesArray);
-
-        // transformam raspunsul in text si ii spunem browserului ca e un JSON
-        crow::response res(apiResponse.toJson().dump());
-        res.add_header("Content-Type", "application/json");
-        return res;
     });
 
     std::cout << ">>> Serverul a pornit! Deschide un browser si acceseaza: http://localhost:8080/movies <<<" << std::endl;
