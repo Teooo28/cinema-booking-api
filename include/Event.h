@@ -20,6 +20,8 @@ public:
 
     void setDiscountStrategy(std::shared_ptr<DiscountStrategy> strategy);
 
+    double getFinalPrice() const;
+
     int getId() const;
     std::string getTitle() const;
     double getBasePrice() const;

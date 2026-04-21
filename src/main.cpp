@@ -21,7 +21,7 @@ int main() {
             int durataGresita = -10;
             
             if (durataGresita < 0) {
-                throw InvalidEventException("Durata filmului nu poate fi negativa!");
+                throw InvalidDataException("Durata filmului nu poate fi negativa!");
             }
 
             auto movie1 = EventFactory::createEvent("2D", 1, "Interstellar", durataGresita, 30.0);
@@ -37,12 +37,30 @@ int main() {
             res.add_header("Content-Type", "application/json");
             return res;
         } 
-        catch (const InvalidEventException& e) {
-            
-            ApiResponse<std::string> errorResponse(false, "Eroare de Validare", e.what());
-            
+        // 1. prindem erorile de date gresite
+        catch (const InvalidDataException& e) {
+            ApiResponse<std::string> errorResponse(false, "Date Invalide", e.what());
             crow::response res(errorResponse.toJson().dump());
-            res.code = 400;
+            
+            res.code = 400; // 400 = bad request
+            res.add_header("Content-Type", "application/json");
+            return res;
+        }
+        // 2. prindem erorile de tip 'nu am gasit filmul'
+        catch (const EventNotFoundException& e) {
+            ApiResponse<std::string> errorResponse(false, "Lipsa Date", e.what());
+            crow::response res(errorResponse.toJson().dump());
+            
+            res.code = 404; // 404 = not found
+            res.add_header("Content-Type", "application/json");
+            return res;
+        }
+        // 3. o plasa de siguranta pentru orice alta eroare neprevazuta
+        catch (const std::exception& e) {
+            ApiResponse<std::string> errorResponse(false, "Eroare Interna", e.what());
+            crow::response res(errorResponse.toJson().dump());
+            
+            res.code = 500; // 500 = internal server error
             res.add_header("Content-Type", "application/json");
             return res;
         }

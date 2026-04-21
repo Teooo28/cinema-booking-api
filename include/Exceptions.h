@@ -1,16 +1,18 @@
 #pragma once
 
-#include <exception>
+#include <stdexcept>
 #include <string>
 
-class InvalidEventException : public std::exception {
-private:
-    std::string message;
-
+// exceptie pentru date invalide (ex: pret negativ, durata imposibila)
+class InvalidDataException : public std::runtime_error {
 public:
-    InvalidEventException(const std::string& message) : message(message) {}
+    InvalidDataException(const std::string& message) 
+        : std::runtime_error(message) {}
+};
 
-    const char* what() const noexcept override {
-        return message.c_str();
-    }
+// exceptie pentru cautari esuate (ex: cautam filmul cu id-ul 99 si nu exista)
+class EventNotFoundException : public std::runtime_error {
+public:
+    EventNotFoundException(const std::string& message) 
+        : std::runtime_error(message) {}
 };

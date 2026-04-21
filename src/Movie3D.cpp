@@ -8,9 +8,8 @@ std::string Movie3D::getType() const {
 }
 
 nlohmann::json Movie3D::toJson() const {
-    double discountedBase = discountStrategy->calculatePrice(basePrice);
-    
-    double finalPrice = discountedBase + specialFee;
+    // luam pretul cu reducere din parinte si adaugam taxa 3d
+    double finalPrice = this->getFinalPrice() + specialFee;
 
     return {
         {"id", id},

@@ -8,7 +8,8 @@ std::string Movie2D::getType() const {
 }
 
 nlohmann::json Movie2D::toJson() const {
-    double finalPrice = discountStrategy->calculatePrice(basePrice);
+    // luam pretul gata calculat din clasa parinte (Event)
+    double finalPrice = this->getFinalPrice();
 
     return {
         {"id", id},
