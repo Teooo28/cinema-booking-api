@@ -1,7 +1,8 @@
 #include "Event.h"
+#include "Exceptions.h"
 
-Event::Event(int id, const std::string& title, int duration, double basePrice)
-    : id(id), title(title), durationMinutes(duration), basePrice(basePrice) {
+Event::Event(int id, const std::string& title, int duration, double basePrice, int availableSeats)
+    : id(id), title(title), durationMinutes(duration), basePrice(basePrice), availableSeats(availableSeats) {
     
     // setam o strategie default pentru a evita erori de tip null pointer
     this->discountStrategy = std::make_shared<NoDiscount>();
@@ -16,6 +17,21 @@ void Event::setDiscountStrategy(std::shared_ptr<DiscountStrategy> strategy) {
     if (strategy) {
         this->discountStrategy = strategy;
     }
+}
+
+void Event::bookSeats(int count) {
+    if (count <= 0) {
+        throw InvalidDataException("Trebuie sa rezervi cel putin un bilat!");
+    }
+    if (count > availableSeats) {
+        throw InvalidDataException("Nu sunt destule locuri disponibile in sala!");
+    }
+    // scadem locurile din sala
+    availableSeats -= count;
+}
+
+int Event::getAvailableSeats() const {
+    return availableSeats;
 }
 
 // calculam pretul aici o singura data ca sa nu repetam codul in toate clasele copil

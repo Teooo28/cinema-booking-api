@@ -2,13 +2,13 @@
 #include <stdexcept>
 
 std::unique_ptr<Event> EventFactory::createEvent(
-    const std::string& type, int id, const std::string& title, int duration, double basePrice, double specialFee) {
+    const std::string& type, int id, const std::string& title, int duration, double basePrice, int availableSeats, double specialFee) {
     
     if (type == "2D") {
-        return std::make_unique<Movie2D>(id, title, duration, basePrice);
+        return std::make_unique<Movie2D>(id, title, duration, basePrice, availableSeats);
     } 
     else if (type == "3D") {
-        return std::make_unique<Movie3D>(id, title, duration, basePrice, specialFee);
+        return std::make_unique<Movie3D>(id, title, duration, basePrice, availableSeats, specialFee);
     } 
     else {
         throw std::invalid_argument("Eroare: Tip de eveniment necunoscut!");

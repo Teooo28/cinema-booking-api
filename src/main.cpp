@@ -24,7 +24,7 @@ int main() {
                 throw InvalidDataException("Durata filmului nu poate fi negativa!");
             }
 
-            auto movie1 = EventFactory::createEvent("2D", 1, "Interstellar", durataGresita, 30.0);
+            auto movie1 = EventFactory::createEvent("2D", 1, "Interstellar", durataGresita, 30.0, 100);
             schedule.push_back(std::move(movie1));
 
             nlohmann::json moviesArray = nlohmann::json::array();

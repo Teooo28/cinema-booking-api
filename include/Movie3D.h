@@ -7,7 +7,7 @@ private:
     double specialFee;
 
 public:
-    Movie3D(int id, const std::string& title, int duration, double basePrice, double fee);
+    Movie3D(int id, const std::string& title, int duration, double basePrice, int availableSeats, double fee);
 
     nlohmann::json toJson() const override;
     std::string getType() const override;

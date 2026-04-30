@@ -14,6 +14,7 @@ public:
         const std::string& title, 
         int duration, 
         double basePrice, 
+        int availableSeats,
         double specialFee = 0.0
     );
 };

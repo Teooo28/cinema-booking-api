@@ -1,7 +1,7 @@
 #include "Movie2D.h"
 
-Movie2D::Movie2D(int id, const std::string& title, int duration, double basePrice)
-    : Event(id, title, duration, basePrice) {}
+Movie2D::Movie2D(int id, const std::string& title, int duration, double basePrice, int availableSeats)
+    : Event(id, title, duration, basePrice, availableSeats) {}
 
 std::string Movie2D::getType() const {
     return "Movie2D";
@@ -18,6 +18,7 @@ nlohmann::json Movie2D::toJson() const {
         {"basePrice", basePrice},
         {"finalPrice", finalPrice},
         {"discount", discountStrategy->getStrategyName()},
-        {"type", getType()}
+        {"type", getType()},
+        {"availableSeats", this->getAvailableSeats()}
     };
 }
