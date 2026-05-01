@@ -6,10 +6,13 @@ Movie3D::Movie3D(int id, const std::string& title, int duration, double basePric
 std::string Movie3D::getType() const {
     return "Movie3D";
 }
+// polimorfism - suprascriere functie virtuala din clasa de baza
+double Movie3D::getFinalPrice() const {
+    return Event::getFinalPrice() + specialFee; 
+}
 
 nlohmann::json Movie3D::toJson() const {
-    // luam pretul cu reducere din parinte si adaugam taxa 3d
-    double finalPrice = this->getFinalPrice() + specialFee;
+    double finalPrice = this->getFinalPrice();
 
     return {
         {"id", id},

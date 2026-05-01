@@ -18,6 +18,8 @@ protected:
     std::shared_ptr<DiscountStrategy> discountStrategy;
 
 public:
+    static const int MAX_TICKETS_PER_TRANSACTION = 10;
+
     Event(int id, const std::string& title, int durationMinutes, double basePrice, int availableSeats);
     virtual ~Event();
 
@@ -27,7 +29,7 @@ public:
 
     static int getTotalEventsCreated();
 
-    double getFinalPrice() const;
+    virtual double getFinalPrice() const;
     int getAvailableSeats() const;
 
     int getId() const;

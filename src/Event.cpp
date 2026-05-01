@@ -27,6 +27,9 @@ void Event::bookSeats(int count) {
     if (count <= 0) {
         throw InvalidDataException("Trebuie sa rezervi cel putin un bilat!");
     }
+    if (count > MAX_TICKETS_PER_TRANSACTION) {
+            throw InvalidDataException("Poti cumpara maxim 10 bilete odata!");
+    }
     if (count > availableSeats) {
         throw InvalidDataException("Nu sunt destule locuri disponibile in sala!");
     }

@@ -11,4 +11,6 @@ public:
 
     nlohmann::json toJson() const override;
     std::string getType() const override;
+
+    double getFinalPrice() const override;
 };
