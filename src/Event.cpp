@@ -1,11 +1,15 @@
 #include "Event.h"
 #include "Exceptions.h"
 
+int Event::totalEventsCreated = 0;
+
 Event::Event(int id, const std::string& title, int duration, double basePrice, int availableSeats)
     : id(id), title(title), durationMinutes(duration), basePrice(basePrice), availableSeats(availableSeats) {
     
     // setam o strategie default pentru a evita erori de tip null pointer
     this->discountStrategy = std::make_shared<NoDiscount>();
+    // crestem contorul de fiecare data cand se fabrica un film nou
+    totalEventsCreated++;
 }
 
 Event::~Event() {
@@ -28,6 +32,10 @@ void Event::bookSeats(int count) {
     }
     // scadem locurile din sala
     availableSeats -= count;
+}
+
+int Event::getTotalEventsCreated() {
+    return totalEventsCreated;
 }
 
 int Event::getAvailableSeats() const {

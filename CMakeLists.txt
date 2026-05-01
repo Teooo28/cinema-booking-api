@@ -51,8 +51,10 @@ set(SOURCES
     src/Movie3D.cpp
     src/EventFactory.cpp
     src/DiscountStrategy.cpp
+    src/CinemaRepository.cpp
 )
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES}
+    include/CinemaRepository.h)
 
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Crow ws2_32 mswsock)

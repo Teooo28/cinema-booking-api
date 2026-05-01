@@ -13,6 +13,8 @@ protected:
     double basePrice;
     int availableSeats;
 
+    static int totalEventsCreated;
+
     std::shared_ptr<DiscountStrategy> discountStrategy;
 
 public:
@@ -22,6 +24,8 @@ public:
     void setDiscountStrategy(std::shared_ptr<DiscountStrategy> strategy);
 
     void bookSeats(int count);
+
+    static int getTotalEventsCreated();
 
     double getFinalPrice() const;
     int getAvailableSeats() const;
