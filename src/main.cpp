@@ -65,6 +65,9 @@ int main() {
 
             // facem actiunea (aici pica in eroare 400 daca nu sunt destule locuri)
             filmGasit->bookSeats(bileteDorite);
+            
+            // ii spunem db ului sa salveze filmul
+            repo.updateEvent(filmGasit);
 
             // confirmam succesul pe net
             ApiResponse<std::string> apiResponse(true, "Succes", "Ai rezervat biletele cu succes!");

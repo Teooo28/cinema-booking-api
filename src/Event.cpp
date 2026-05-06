@@ -61,3 +61,7 @@ std::string Event::getTitle() const {
 double Event::getBasePrice() const {
     return basePrice;
 }
+
+void Event::setAvailableSeats(int seats) {
+    this->availableSeats = seats;
+}

@@ -52,9 +52,13 @@ set(SOURCES
     src/EventFactory.cpp
     src/DiscountStrategy.cpp
     src/CinemaRepository.cpp
+    src/sqlite3.c
 )
 add_executable(${PROJECT_NAME} ${SOURCES}
     include/CinemaRepository.h)
+
+# oprim avertismentele strict pentru motorul SQLite
+set_source_files_properties(src/sqlite3.c PROPERTIES COMPILE_FLAGS "-w")
 
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Crow ws2_32 mswsock)

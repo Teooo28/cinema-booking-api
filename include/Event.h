@@ -38,4 +38,6 @@ public:
 
     virtual nlohmann::json toJson() const = 0; 
     virtual std::string getType() const = 0;
+
+    void setAvailableSeats(int seats); // ca sa poata baza de date sa suprascrie locurile
 };
