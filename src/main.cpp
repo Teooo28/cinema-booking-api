@@ -1,6 +1,7 @@
 #include <iostream>
-#include <vector>
 #include <memory>
+#include <sstream>
+#include <iomanip> 
 #include "crow.h" 
 #include "EventFactory.h"
 #include "DiscountStrategy.h"
@@ -9,10 +10,10 @@
 #include "CinemaRepository.h"
 
 int main() {
-    // initializam aplicatia web (serverul)
+    // initializare framework web Crow (motorul care asculta cererile HTTP)
     crow::SimpleApp app;
 
-    // instantiem clasa de depozitare
+    // instantiem clasa Repository
     CinemaRepository repo;
     
     // bagam cateva filme de test
@@ -20,16 +21,22 @@ int main() {
     repo.addEvent(EventFactory::createEvent("3D", 2, "Avatar", 192, 40.0, 50, 15.0));
 
     // RUTA 1: citeste filmele (GET)
-    // punem [&schedule] ca sa aiba voie sa foloseasca lista de mai sus
+    // punem [&repo] ca sa aiba voie sa foloseasca lista de mai sus
     CROW_ROUTE(app, "/movies").methods(crow::HTTPMethod::GET)([&repo]() {
         
         try {
+            // construim un array JSON gol pentru a stoca lista de evenimente
             nlohmann::json moviesArray = nlohmann::json::array();
+
+            // iteram prin toate evenimentele si apelam metoda polimorfica toJson()
             for (const auto& event : repo.getAllEvents()) {
                 moviesArray.push_back(event->toJson());
             }
 
+            // impachetam datele folosind clasa template ApiResponse
             ApiResponse<nlohmann::json> apiResponse(true, "Filme gasite", moviesArray);
+
+            // generam raspunsul HTTP si ii setam header ul corect
             crow::response res(apiResponse.toJson().dump());
             res.add_header("Content-Type", "application/json");
             return res;
@@ -44,33 +51,60 @@ int main() {
         }
     });
 
-    // RUTA 2: cumpara bilete (POST)
-    // ruta primeste req (datele din internet) si idFilm (numarul din link)
+    // RUTA 2: rezervare bilete (POST)
+    // parametrul <int> din ruta este extras automat de Crow in variabila 'idFilm'.
+    // 'req' contine payload-ul (corpul) trimis de client prin internet
     CROW_ROUTE(app, "/movies/<int>/book").methods(crow::HTTPMethod::POST)([&repo](const crow::request& req, int idFilm) {
         try {
-            // citim json-ul trimis de client ca sa vedem cate bilete vrea
+            // parsam textul venit de pe internet intr-un obiect de tip JSON
             auto body = nlohmann::json::parse(req.body);
+
+            // validam prezenta cheii obligatorii
             if (!body.contains("bilete")) {
                 throw InvalidDataException("Trebuie sa trimiti numarul de bilete!");
             }
             int bileteDorite = body["bilete"];
 
-            // cautam filmul in lista
+            // cautam pointer ul catre instanta filmului in memorie
             Event* filmGasit = repo.getEventById(idFilm);
 
-            // daca nu l-am gasit, dam eroare 404
+            // verificam daca utilizatorul are un status special (ex: student)
+            if (body.contains("status") && body["status"] == "student") {
+                // injectam strategia de reducere in film
+                filmGasit->setDiscountStrategy(std::make_shared<StudentDiscount>());
+            } else {
+                // ne asiguram ca filmul are strategia standard (fara reducere)
+                filmGasit->setDiscountStrategy(std::make_shared<NoDiscount>()); 
+            }
+
+            // daca filmul nu exista aruncam exceptia custom
             if (!filmGasit) {
                 throw EventNotFoundException("Filmul cu acest ID nu exista!");
             }
 
-            // facem actiunea (aici pica in eroare 400 daca nu sunt destule locuri)
+            // facem actiunea de rezervare (aici pica in eroare 400 daca nu sunt destule locuri)
             filmGasit->bookSeats(bileteDorite);
             
-            // ii spunem db ului sa salveze filmul
+            // dupa ce modificarea s a facut in RAM sincronizam datele pe hard disk (SQLite)
             repo.updateEvent(filmGasit);
 
-            // confirmam succesul pe net
-            ApiResponse<std::string> apiResponse(true, "Succes", "Ai rezervat biletele cu succes!");
+            // logica pentru gramatica corecta
+            std::string cuvantBilet = (bileteDorite == 1) ? " bilet" : " bilete";
+
+            // calculam nota de plata 
+            double totalPlata = filmGasit->getFinalPrice() * bileteDorite;
+
+            // formatam pretul sa aiba fix 2 zecimale
+            std::stringstream streamPret;
+            streamPret << std::fixed << std::setprecision(2) << totalPlata;
+            std::string pretFormatat = streamPret.str();
+
+            std::string mesaj = "Ai rezervat " + std::to_string(bileteDorite) + cuvantBilet +
+                                ". Total de plata: " + pretFormatat + " RON.";
+
+            // trimitem nota de plata clientului
+            ApiResponse<std::string> apiResponse(true, "Rezervare Confirmata", mesaj);
+
             crow::response res(apiResponse.toJson().dump());
             res.add_header("Content-Type", "application/json");
             return res;
@@ -104,6 +138,7 @@ int main() {
     std::cout << ">>> Serverul a pornit! Deschide un browser si acceseaza: http://localhost:8080/movies <<<" << std::endl;
     
     // pornim efectiv serverul pe portul 8080
+    // functia multithreaded() permite procesarea cererilor HTTP in paralel
     app.port(8080).multithreaded().run();
 
     return 0;
