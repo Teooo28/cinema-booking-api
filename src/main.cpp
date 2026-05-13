@@ -2,6 +2,7 @@
 #include <memory>
 #include <sstream>
 #include <iomanip> 
+#include <unordered_map>
 #include "crow.h" 
 #include "EventFactory.h"
 #include "DiscountStrategy.h"
@@ -15,6 +16,9 @@ int main() {
 
     // instantiem clasa Repository
     CinemaRepository repo;
+
+    // registru ce retine Codul de intrare -> {ID_Film, Numar_Bilete}
+    std::unordered_map<std::string, std::pair<int, int>> rezervariActive;
     
     // bagam cateva filme de test
     repo.addEvent(EventFactory::createEvent("2D", 1, "Interstellar", 169, 30.0, 100, 0.0));
@@ -54,7 +58,7 @@ int main() {
     // RUTA 2: rezervare bilete (POST)
     // parametrul <int> din ruta este extras automat de Crow in variabila 'idFilm'.
     // 'req' contine payload-ul (corpul) trimis de client prin internet
-    CROW_ROUTE(app, "/movies/<int>/book").methods(crow::HTTPMethod::POST)([&repo](const crow::request& req, int idFilm) {
+    CROW_ROUTE(app, "/movies/<int>/book").methods(crow::HTTPMethod::POST)([&repo, &rezervariActive](const crow::request& req, int idFilm) {
         try {
             // parsam textul venit de pe internet intr-un obiect de tip JSON
             auto body = nlohmann::json::parse(req.body);
@@ -91,6 +95,12 @@ int main() {
             // logica pentru gramatica corecta
             std::string cuvantBilet = (bileteDorite == 1) ? " bilet" : " bilete";
 
+            // generarea unui cod de rezervare random (ex: #TKT-4829)
+            int randomNum = rand() % 9000 + 1000; // Genereaza un numar intre 1000 si 9999
+            std::string codRezervare = "#TKT-" + std::to_string(randomNum);
+            // salvam chitanta in registru ca sa stim ce a cumparat
+            rezervariActive[codRezervare] = {idFilm, bileteDorite};
+
             // calculam nota de plata 
             double totalPlata = filmGasit->getFinalPrice() * bileteDorite;
 
@@ -100,7 +110,7 @@ int main() {
             std::string pretFormatat = streamPret.str();
 
             std::string mesaj = "Ai rezervat " + std::to_string(bileteDorite) + cuvantBilet +
-                                ". Total de plata: " + pretFormatat + " RON.";
+                                ". Total de plata: " + pretFormatat + " RON. Cod intrare: " + codRezervare;
 
             // trimitem nota de plata clientului
             ApiResponse<std::string> apiResponse(true, "Rezervare Confirmata", mesaj);
@@ -137,41 +147,48 @@ int main() {
 
     // RUTA 3: Anularea unei rezervari (Metoda DELETE)
     // clientul trimite JSON cu cate bilete vrea sa returneze: {"bilete_anulate": 2}
-    CROW_ROUTE(app, "/movies/<int>/cancel").methods(crow::HTTPMethod::Delete)([&repo](const crow::request& req, int idFilm) {
+    CROW_ROUTE(app, "/cancel").methods(crow::HTTPMethod::Delete)([&repo, &rezervariActive](const crow::request& req) {
         try {
             auto body = nlohmann::json::parse(req.body);
-            if (!body.contains("bilete_anulate")) {
-                throw InvalidDataException("Specifica numarul de bilete anulate!");
+            if (!body.contains("cod_intrare")) {
+                throw InvalidDataException("Trebuie sa introduci codul de rezervare!");
             }
-            int bileteDeAnulat = body["bilete_anulate"];
+            std::string cod = body["cod_intrare"];
 
+            // verificam daca exista chitanta in registru
+            if (rezervariActive.find(cod) == rezervariActive.end()) {
+                throw EventNotFoundException("Cod invalid sau rezervarea a fost deja anulata!");
+            }
+
+            // citim datele de pe chitanta
+            int idFilm = rezervariActive[cod].first;
+            int bileteDeAnulat = rezervariActive[cod].second;
+
+            // cautam filmul si dam locurile inapoi
             Event* filmGasit = repo.getEventById(idFilm);
-            if (!filmGasit) {
-                throw EventNotFoundException("Filmul nu exista!");
-            }
-
-            // logica de returnare a locurilor in memorie
             int locuriCurente = filmGasit->getAvailableSeats();
             filmGasit->setAvailableSeats(locuriCurente + bileteDeAnulat);
+            repo.updateEvent(filmGasit); // salvam in SQLite
 
-            // sincronizam noua capacitate cu baza de date SQLite
-            repo.updateEvent(filmGasit);
+            // distrugem chitanta
+            rezervariActive.erase(cod);
 
             ApiResponse<std::string> apiResponse(true, "Anulare reusita", 
-                "Au fost returnate " + std::to_string(bileteDeAnulat) + " locuri.");
+                "Au fost returnate " + std::to_string(bileteDeAnulat) + " locuri pentru codul " + cod);
             
             crow::response res(apiResponse.toJson().dump());
             res.add_header("Content-Type", "application/json");
             return res;
 
         } catch (const std::exception& e) {
-            ApiResponse<std::string> errorResponse(false, "Eroare", e.what());
+            ApiResponse<std::string> errorResponse(false, "Eroare Anulare", e.what());
             crow::response res(errorResponse.toJson().dump());
             res.code = 400; 
             res.add_header("Content-Type", "application/json");
             return res;
         }
     });
+
 
     std::cout << ">>> Serverul a pornit! Deschide un browser si acceseaza: http://localhost:8080/movies <<<" << std::endl;
     
