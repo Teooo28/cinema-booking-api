@@ -135,6 +135,44 @@ int main() {
         }
     });
 
+    // RUTA 3: Anularea unei rezervari (Metoda DELETE)
+    // clientul trimite JSON cu cate bilete vrea sa returneze: {"bilete_anulate": 2}
+    CROW_ROUTE(app, "/movies/<int>/cancel").methods(crow::HTTPMethod::Delete)([&repo](const crow::request& req, int idFilm) {
+        try {
+            auto body = nlohmann::json::parse(req.body);
+            if (!body.contains("bilete_anulate")) {
+                throw InvalidDataException("Specifica numarul de bilete anulate!");
+            }
+            int bileteDeAnulat = body["bilete_anulate"];
+
+            Event* filmGasit = repo.getEventById(idFilm);
+            if (!filmGasit) {
+                throw EventNotFoundException("Filmul nu exista!");
+            }
+
+            // logica de returnare a locurilor in memorie
+            int locuriCurente = filmGasit->getAvailableSeats();
+            filmGasit->setAvailableSeats(locuriCurente + bileteDeAnulat);
+
+            // sincronizam noua capacitate cu baza de date SQLite
+            repo.updateEvent(filmGasit);
+
+            ApiResponse<std::string> apiResponse(true, "Anulare reusita", 
+                "Au fost returnate " + std::to_string(bileteDeAnulat) + " locuri.");
+            
+            crow::response res(apiResponse.toJson().dump());
+            res.add_header("Content-Type", "application/json");
+            return res;
+
+        } catch (const std::exception& e) {
+            ApiResponse<std::string> errorResponse(false, "Eroare", e.what());
+            crow::response res(errorResponse.toJson().dump());
+            res.code = 400; 
+            res.add_header("Content-Type", "application/json");
+            return res;
+        }
+    });
+
     std::cout << ">>> Serverul a pornit! Deschide un browser si acceseaza: http://localhost:8080/movies <<<" << std::endl;
     
     // pornim efectiv serverul pe portul 8080
