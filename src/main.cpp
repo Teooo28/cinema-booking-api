@@ -68,8 +68,7 @@ int main() {
                 filmGasit->setDiscountStrategy(std::make_shared<NoDiscount>()); 
             }
 
-            // Sectiune critica: blocam accesul concurent pentru a garanta
-            // consistenta intregii tranzactii (RAM + DB + istoric)
+            // Sectiune critica: blocam accesul concurent pentru a garanta consistenta intregii tranzactii (RAM + DB + istoric)
             std::lock_guard<std::mutex> lock(rezervariMutex);
             
             filmGasit->bookSeats(bileteDorite);
