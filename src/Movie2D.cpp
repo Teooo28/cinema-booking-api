@@ -7,9 +7,8 @@ std::string Movie2D::getType() const {
     return "Movie2D";
 }
 
-nlohmann::json Movie2D::toJson() const {
-    // luam pretul gata calculat din clasa parinte (Event)
-    double finalPrice = this->getFinalPrice();
+nlohmann::json Movie2D::toJson(std::shared_ptr<DiscountStrategy> strategy) const {
+    double finalPrice = this->getFinalPrice(strategy);
 
     return {
         {"id", id},
@@ -17,7 +16,7 @@ nlohmann::json Movie2D::toJson() const {
         {"duration", durationMinutes},
         {"basePrice", basePrice},
         {"finalPrice", finalPrice},
-        {"discount", discountStrategy->getStrategyName()},
+        {"discount", strategy->getStrategyName()},
         {"type", getType()},
         {"availableSeats", this->getAvailableSeats()}
     };

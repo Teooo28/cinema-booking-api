@@ -15,11 +15,11 @@ int main() {
     crow::SimpleApp app;
     CinemaRepository repo;
 
-    // In-memory registry: Cod Rezervare -> {ID_Film, Numar_Bilete}
-    std::unordered_map<std::string, std::pair<int, int>> rezervariActive;
-    std::mutex rezervariMutex;
+    // In-memory registry: Reservation Code -> {Movie_ID, Ticket_Count}
+    std::unordered_map<std::string, std::pair<int, int>> activeReservations;
+    std::mutex reservationsMutex;
     
-    // Populare baza de date cu evenimente initiale de test
+    // Populate the database with initial test events
     repo.addEvent(EventFactory::createEvent("2D", 1, "Interstellar", 169, 30.0, 100, 0.0));
     repo.addEvent(EventFactory::createEvent("3D", 2, "Avatar", 192, 40.0, 50, 15.0));
 
@@ -28,17 +28,20 @@ int main() {
         try {
             nlohmann::json moviesArray = nlohmann::json::array();
             
+            // Inject a default standard strategy for public catalog viewing
+            auto defaultStrategy = std::make_shared<NoDiscount>();
+
             for (const auto& event : repo.getAllEvents()) {
-                moviesArray.push_back(event->toJson());
+                moviesArray.push_back(event->toJson(defaultStrategy));
             }
 
-            ApiResponse<nlohmann::json> apiResponse(true, "Filme gasite", moviesArray);
+            ApiResponse<nlohmann::json> apiResponse(true, "Movies retrieved successfully", moviesArray);
             crow::response res(apiResponse.toJson().dump());
             res.add_header("Content-Type", "application/json");
             return res;
         } 
         catch (const std::exception& e) {
-            ApiResponse<std::string> errorResponse(false, "Eroare Interna", e.what());
+            ApiResponse<std::string> errorResponse(false, "Internal Server Error", e.what());
             crow::response res(errorResponse.toJson().dump());
             res.code = 500; 
             res.add_header("Content-Type", "application/json");
@@ -47,67 +50,69 @@ int main() {
     });
 
     // POST /movies/<id>/book - Process ticket reservation
-    CROW_ROUTE(app, "/movies/<int>/book").methods(crow::HTTPMethod::POST)([&repo, &rezervariActive, &rezervariMutex](const crow::request& req, int idFilm) {
+    CROW_ROUTE(app, "/movies/<int>/book").methods(crow::HTTPMethod::POST)([&repo, &activeReservations, &reservationsMutex](const crow::request& req, int movieId) {
         try {
             auto body = nlohmann::json::parse(req.body);
 
-            if (!body.contains("bilete")) {
-                throw InvalidDataException("Trebuie sa trimiti numarul de bilete!");
+            if (!body.contains("tickets")) {
+                throw InvalidDataException("You must provide the number of tickets!");
             }
-            int bileteDorite = body["bilete"];
+            int requestedTickets = body["tickets"];
 
-            Event* filmGasit = repo.getEventById(idFilm);
-            if (!filmGasit) {
-                throw EventNotFoundException("Filmul cu acest ID nu exista!");
+            Event* targetMovie = repo.getEventById(movieId);
+            if (!targetMovie) {
+                throw EventNotFoundException("Movie with the provided ID does not exist!");
             }
 
-            // Injectare dinamica a strategiei de reducere (Business logic)
+            // Determine the business logic strategy dynamically based on user status
+            std::shared_ptr<DiscountStrategy> appliedStrategy;
             if (body.contains("status") && body["status"] == "student") {
-                filmGasit->setDiscountStrategy(std::make_shared<StudentDiscount>());
+                appliedStrategy = std::make_shared<StudentDiscount>();
             } else {
-                filmGasit->setDiscountStrategy(std::make_shared<NoDiscount>()); 
+                appliedStrategy = std::make_shared<NoDiscount>(); 
             }
 
-            // Sectiune critica: blocam accesul concurent pentru a garanta consistenta intregii tranzactii (RAM + DB + istoric)
-            std::lock_guard<std::mutex> lock(rezervariMutex);
+            // Critical section: lock concurrent access to guarantee transaction consistency (RAM + DB + History)
+            std::lock_guard<std::mutex> lock(reservationsMutex);
             
-            filmGasit->bookSeats(bileteDorite);
-            repo.updateEvent(filmGasit); 
+            targetMovie->bookSeats(requestedTickets);
+            repo.updateEvent(targetMovie); 
 
             int randomNum = rand() % 9000 + 1000;
-            std::string codRezervare = "#TKT-" + std::to_string(randomNum);
-            rezervariActive[codRezervare] = {idFilm, bileteDorite};
+            std::string reservationCode = "#TKT-" + std::to_string(randomNum);
+            activeReservations[reservationCode] = {movieId, requestedTickets};
 
-            // Calcul final aplicand Design Pattern-ul Strategy
-            double totalPlata = filmGasit->getFinalPrice() * bileteDorite;
+            // Final calculation applying the Strategy Design Pattern dynamically
+            double totalPayment = targetMovie->getFinalPrice(appliedStrategy) * requestedTickets;
 
-            std::stringstream streamPret;
-            streamPret << std::fixed << std::setprecision(2) << totalPlata;
-            std::string mesaj = "Ai rezervat " + std::to_string(bileteDorite) + (bileteDorite == 1 ? " bilet" : " bilete") +
-                                ". Total de plata: " + streamPret.str() + " RON. Cod intrare: " + codRezervare;
+            std::stringstream priceStream;
+            priceStream << std::fixed << std::setprecision(2) << totalPayment;
+            std::string ticketWord = (requestedTickets == 1) ? " ticket" : " tickets";
+            std::string message = "You have successfully booked " + std::to_string(requestedTickets) + ticketWord +
+                                  ". Total payment: " + priceStream.str() + " RON. Entry code: " + reservationCode;
 
-            ApiResponse<std::string> apiResponse(true, "Rezervare Confirmata", mesaj);
+            ApiResponse<std::string> apiResponse(true, "Booking Confirmed", message);
             crow::response res(apiResponse.toJson().dump());
             res.add_header("Content-Type", "application/json");
             return res;
 
         } 
         catch (const InvalidDataException& e) {
-            ApiResponse<std::string> errorResponse(false, "Eroare Date", e.what());
+            ApiResponse<std::string> errorResponse(false, "Data Error", e.what());
             crow::response res(errorResponse.toJson().dump());
             res.code = 400; 
             res.add_header("Content-Type", "application/json");
             return res;
         } 
         catch (const EventNotFoundException& e) {
-            ApiResponse<std::string> errorResponse(false, "Eroare Cautare", e.what());
+            ApiResponse<std::string> errorResponse(false, "Search Error", e.what());
             crow::response res(errorResponse.toJson().dump());
             res.code = 404; 
             res.add_header("Content-Type", "application/json");
             return res;
         }
         catch (const nlohmann::json::exception& e) {
-            ApiResponse<std::string> errorResponse(false, "JSON Invalid", "Te rog verifica formatul JSON");
+            ApiResponse<std::string> errorResponse(false, "Invalid JSON", "Please verify the JSON format.");
             crow::response res(errorResponse.toJson().dump());
             res.code = 400;
             res.add_header("Content-Type", "application/json");
@@ -116,41 +121,41 @@ int main() {
     });
 
     // DELETE /cancel - Cancel reservation and refund seats
-    CROW_ROUTE(app, "/cancel").methods(crow::HTTPMethod::Delete)([&repo, &rezervariActive, &rezervariMutex](const crow::request& req) {
+    CROW_ROUTE(app, "/cancel").methods(crow::HTTPMethod::Delete)([&repo, &activeReservations, &reservationsMutex](const crow::request& req) {
         try {
             auto body = nlohmann::json::parse(req.body);
-            if (!body.contains("cod_intrare")) {
-                throw InvalidDataException("Trebuie sa introduci codul de rezervare!");
+            if (!body.contains("reservation_code")) {
+                throw InvalidDataException("You must provide the reservation code!");
             }
-            std::string cod = body["cod_intrare"];
+            std::string code = body["reservation_code"];
 
-            // Sectiune critica: sincronizam cautarea chitantei si refund-ul locurilor
-            std::lock_guard<std::mutex> lock(rezervariMutex);
+            // Critical section: synchronize receipt lookup and seat refunding
+            std::lock_guard<std::mutex> lock(reservationsMutex);
             
-            if (rezervariActive.find(cod) == rezervariActive.end()) {
-                throw EventNotFoundException("Cod invalid sau rezervarea a fost deja anulata!");
+            if (activeReservations.find(code) == activeReservations.end()) {
+                throw EventNotFoundException("Invalid code or reservation already cancelled!");
             }
 
-            int idFilm = rezervariActive[cod].first;
-            int bileteDeAnulat = rezervariActive[cod].second;
+            int movieId = activeReservations[code].first;
+            int ticketsToCancel = activeReservations[code].second;
 
-            Event* filmGasit = repo.getEventById(idFilm);
+            Event* targetMovie = repo.getEventById(movieId);
             
-            // Refund efectiv al locurilor in RAM si DB
-            filmGasit->setAvailableSeats(filmGasit->getAvailableSeats() + bileteDeAnulat);
-            repo.updateEvent(filmGasit); 
+            // Refund seats in memory and database
+            targetMovie->setAvailableSeats(targetMovie->getAvailableSeats() + ticketsToCancel);
+            repo.updateEvent(targetMovie); 
 
-            rezervariActive.erase(cod);
+            activeReservations.erase(code);
 
-            ApiResponse<std::string> apiResponse(true, "Anulare reusita", 
-                "Au fost returnate " + std::to_string(bileteDeAnulat) + " locuri pentru codul " + cod);
+            ApiResponse<std::string> apiResponse(true, "Cancellation successful", 
+                "Successfully refunded " + std::to_string(ticketsToCancel) + " seats for code " + code);
             
             crow::response res(apiResponse.toJson().dump());
             res.add_header("Content-Type", "application/json");
             return res;
 
         } catch (const std::exception& e) {
-            ApiResponse<std::string> errorResponse(false, "Eroare Anulare", e.what());
+            ApiResponse<std::string> errorResponse(false, "Cancellation Error", e.what());
             crow::response res(errorResponse.toJson().dump());
             res.code = 400; 
             res.add_header("Content-Type", "application/json");
@@ -158,7 +163,7 @@ int main() {
         }
     });
 
-    std::cout << ">>> Serverul a pornit pe portul 8080 <<<" << std::endl;
+    std::cout << ">>> Server is running on port 8080 <<<" << std::endl;
     app.port(8080).multithreaded().run();
 
     return 0;

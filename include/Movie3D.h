@@ -9,8 +9,8 @@ private:
 public:
     Movie3D(int id, const std::string& title, int duration, double basePrice, int availableSeats, double fee);
 
-    nlohmann::json toJson() const override;
+    nlohmann::json toJson(std::shared_ptr<DiscountStrategy> strategy) const override;
     std::string getType() const override;
 
-    double getFinalPrice() const override;
+    double getFinalPrice(std::shared_ptr<DiscountStrategy> strategy) const override;
 };

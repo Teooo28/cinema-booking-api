@@ -6,13 +6,14 @@ Movie3D::Movie3D(int id, const std::string& title, int duration, double basePric
 std::string Movie3D::getType() const {
     return "Movie3D";
 }
-// polimorfism - suprascriere functie virtuala din clasa de baza
-double Movie3D::getFinalPrice() const {
-    return Event::getFinalPrice() + specialFee; 
+
+double Movie3D::getFinalPrice(std::shared_ptr<DiscountStrategy> strategy) const {
+    // Polymorphic override: calculates base price using strategy and appends the 3D specific fee
+    return Event::getFinalPrice(strategy) + specialFee; 
 }
 
-nlohmann::json Movie3D::toJson() const {
-    double finalPrice = this->getFinalPrice();
+nlohmann::json Movie3D::toJson(std::shared_ptr<DiscountStrategy> strategy) const {
+    double finalPrice = this->getFinalPrice(strategy);
 
     return {
         {"id", id},
@@ -21,7 +22,7 @@ nlohmann::json Movie3D::toJson() const {
         {"basePrice", basePrice},
         {"specialFee", specialFee},
         {"finalPrice", finalPrice},
-        {"discount", discountStrategy->getStrategyName()},
+        {"discount", strategy->getStrategyName()},
         {"type", getType()},
         {"availableSeats", this->getAvailableSeats()}
     };
