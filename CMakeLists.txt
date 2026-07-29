@@ -70,7 +70,14 @@ add_executable(${PROJECT_NAME} ${SOURCES}
 set_source_files_properties(src/sqlite3.c PROPERTIES COMPILE_FLAGS "-w")
 
 target_include_directories(${PROJECT_NAME} PUBLIC include)
-target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Crow ws2_32 mswsock)
+
+if(WIN32)
+    # Suntem pe Windows, legăm librăriile specifice de rețea (Windows Sockets)
+    target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Crow ws2_32 mswsock)
+else()
+    # Suntem pe Linux/Mac (inclusiv în Docker), Crow se descurcă singur
+    target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Crow)
+endif()
 
 if(GITHUB_ACTIONS)
     message("NOTE: GITHUB_ACTIONS defined")
