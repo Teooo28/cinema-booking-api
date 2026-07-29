@@ -10,23 +10,32 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
 
-# 1. Librăria JSON
+# 1. JSON library
 FetchContent_Declare(json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.11.3
 )
 
-# 2. Descărcăm manual ASIO
+# 2. ASIO library
 FetchContent_Declare(asio
     GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
     GIT_TAG asio-1-28-0
 )
 
-# 3. Librăria CROW
+# 3. CROW library
 FetchContent_Declare(Crow
     GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
     GIT_TAG v1.2.0
 )
+
+# 4. Google Test library
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG release-1.12.1
+)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
 
 set(CROW_BUILD_EXAMPLES OFF CACHE BOOL "Skip Crow Examples" FORCE)
 set(CROW_BUILD_TESTS OFF CACHE BOOL "Skip Crow Tests" FORCE)
@@ -108,3 +117,18 @@ elseif(UNIX)
 endif()
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+
+# CONFIGURARE UNIT TESTS
+enable_testing()
+
+add_executable(run_tests 
+    tests/main_test.cpp 
+    src/DiscountStrategy.cpp
+    src/Event.cpp
+    src/Movie2D.cpp
+)
+
+target_include_directories(run_tests PUBLIC include)
+target_link_libraries(run_tests PRIVATE gtest gtest_main nlohmann_json::nlohmann_json)
+
+add_test(NAME CoreLogicTests COMMAND run_tests)
