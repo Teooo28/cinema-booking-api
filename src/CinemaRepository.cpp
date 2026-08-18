@@ -2,7 +2,7 @@
 #include <iostream>
 
 CinemaRepository::CinemaRepository() {
-    // Initializare conexiune cu baza de date locala
+    // Initialize SQLite database connection
     int rc = sqlite3_open("cinema.db", &db); 
     if (rc) {
         std::cerr << "[DB ERROR] Failed to open database: " << sqlite3_errmsg(db) << "\n";
@@ -12,15 +12,20 @@ CinemaRepository::CinemaRepository() {
 }
 
 CinemaRepository::~CinemaRepository() {
-    // Asiguram eliberarea resurselor la inchiderea aplicatiei (RAII concept)
+    // Ensure database connection is closed (RAII compliance)
     sqlite3_close(db);
 }
 
 void CinemaRepository::initDatabase() {
-    // Schema bazei de date: stocam doar starea volatila (locurile ramase)
+    // Define schemas for both volatile state (seats) and persistent entities (users)
     const char* sql = "CREATE TABLE IF NOT EXISTS seats_inventory ("
                       "event_id INTEGER PRIMARY KEY, "
-                      "available_seats INTEGER);";
+                      "available_seats INTEGER);"
+                      "CREATE TABLE IF NOT EXISTS users ("
+                      "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                      "username TEXT UNIQUE NOT NULL, "
+                      "passwordHash TEXT NOT NULL, "
+                      "role TEXT NOT NULL);";
     
     char* errMsg = nullptr;
     sqlite3_exec(db, sql, nullptr, nullptr, &errMsg); 
@@ -35,7 +40,7 @@ void CinemaRepository::addEvent(std::unique_ptr<Event> event) {
     int currentId = event->getId();
     bool foundInDb = false;
     
-    // Verificam persistenta datelor pentru a sincroniza memoria RAM cu discul
+    // Synchronize in-memory event state with persistent storage
     const char* sqlCheck = "SELECT available_seats FROM seats_inventory WHERE event_id = ?;";
     sqlite3_stmt* stmtCheck; 
     
@@ -50,7 +55,7 @@ void CinemaRepository::addEvent(std::unique_ptr<Event> event) {
     }
     sqlite3_finalize(stmtCheck); 
 
-    // Inregistram evenimentul in baza de date daca este la prima rulare
+    // Insert initial event data if not present in the database
     if (!foundInDb) {
         const char* sqlInsert = "INSERT INTO seats_inventory (event_id, available_seats) VALUES (?, ?);";
         sqlite3_stmt* stmtInsert;
@@ -67,7 +72,7 @@ void CinemaRepository::addEvent(std::unique_ptr<Event> event) {
 }
 
 void CinemaRepository::updateEvent(Event* event) {
-    // Tranzactie securizata impotriva SQL Injection (Prepared Statement)
+    // Secure database update using Prepared Statements to prevent SQL Injection
     const char* sqlUpdate = "UPDATE seats_inventory SET available_seats = ? WHERE event_id = ?;";
     sqlite3_stmt* stmt;
 
