@@ -104,3 +104,52 @@ Event* CinemaRepository::getEventById(int id) {
     }
     return nullptr;
 }
+
+void CinemaRepository::addUser(const User& user) {
+    // Prepared statement to prevent SQL Injection during user registration
+    const char* sqlInsert = "INSERT INTO users (username, passwordHash, role) VALUES (?, ?, ?);";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sqlInsert, -1, &stmt, nullptr) == SQLITE_OK) {
+        // SQLITE_TRANSIENT instructs SQLite to make its own copy of the string data
+        sqlite3_bind_text(stmt, 1, user.getUsername().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, user.getPasswordHash().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, user.getRole().c_str(), -1, SQLITE_TRANSIENT);
+
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            std::cerr << "[DB ERROR] Failed to insert new user: " << user.getUsername() << "\n";
+        }
+    } else {
+        std::cerr << "[DB ERROR] Failed to compile insert user statement.\n";
+    }
+    
+    sqlite3_finalize(stmt);
+}
+
+std::unique_ptr<User> CinemaRepository::getUserByUsername(const std::string& username) {
+    const char* sqlSelect = "SELECT id, passwordHash, role FROM users WHERE username = ?;";
+    sqlite3_stmt* stmt;
+    std::unique_ptr<User> foundUser = nullptr;
+
+    if (sqlite3_prepare_v2(db, sqlSelect, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            int id = sqlite3_column_int(stmt, 0);
+            
+            // Safe casting from SQLite's unsigned char* to C++ std::string
+            std::string passwordHash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            std::string role = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+
+            // Construct the User object dynamically and wrap it in a smart pointer
+            foundUser = std::make_unique<User>(id, username, passwordHash, role);
+        }
+    } else {
+        std::cerr << "[DB ERROR] Failed to compile select user statement.\n";
+    }
+    
+    sqlite3_finalize(stmt);
+    
+    // Returns the user if found, or nullptr if the username does not exist
+    return foundUser;
+}
