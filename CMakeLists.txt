@@ -45,6 +45,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(picosha2)
 
+# 6. JWT Library for C++
+FetchContent_Declare(
+    jwt_cpp
+    GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp.git
+    GIT_TAG v0.6.0
+)
+FetchContent_MakeAvailable(jwt_cpp)
+
 set(CROW_BUILD_EXAMPLES OFF CACHE BOOL "Skip Crow Examples" FORCE)
 set(CROW_BUILD_TESTS OFF CACHE BOOL "Skip Crow Tests" FORCE)
 
@@ -81,10 +89,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC include ${picosha2_SOURCE_DIR}
 
 if(WIN32)
     # Suntem pe Windows, legăm librăriile specifice de rețea (Windows Sockets)
-    target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Crow ws2_32 mswsock)
+    target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Crow ws2_32 mswsock jwt-cpp::jwt-cpp)
 else()
     # Suntem pe Linux/Mac (inclusiv în Docker), Crow se descurcă singur
-    target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Crow)
+    target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Crow jwt-cpp::jwt-cpp)
 endif()
 
 if(GITHUB_ACTIONS)
@@ -144,6 +152,6 @@ add_executable(run_tests
 )
 
 target_include_directories(run_tests PUBLIC include ${picosha2_SOURCE_DIR}) 
-target_link_libraries(run_tests PRIVATE gtest gtest_main nlohmann_json::nlohmann_json)
+target_link_libraries(run_tests PRIVATE gtest gtest_main nlohmann_json::nlohmann_json jwt-cpp::jwt-cpp)
 
 add_test(NAME CoreLogicTests COMMAND run_tests)
