@@ -10,6 +10,8 @@
 #include "Exceptions.h"
 #include "CinemaRepository.h"
 #include <mutex>
+#include "picosha2.h"
+#include "User.h"
 
 int main() {
     crow::SimpleApp app;
@@ -108,6 +110,54 @@ int main() {
             ApiResponse<std::string> errorResponse(false, "Search Error", e.what());
             crow::response res(errorResponse.toJson().dump());
             res.code = 404; 
+            res.add_header("Content-Type", "application/json");
+            return res;
+        }
+        catch (const nlohmann::json::exception& e) {
+            ApiResponse<std::string> errorResponse(false, "Invalid JSON", "Please verify the JSON format.");
+            crow::response res(errorResponse.toJson().dump());
+            res.code = 400;
+            res.add_header("Content-Type", "application/json");
+            return res;
+        }
+    });
+
+    // POST /register - Create a new client account
+    CROW_ROUTE(app, "/register").methods(crow::HTTPMethod::POST)([&repo](const crow::request& req) {
+        try {
+            auto body = nlohmann::json::parse(req.body);
+
+            if (!body.contains("username")) {
+                throw InvalidDataException("You must provide your username!");
+            }
+            if (!body.contains("password")) {
+                throw InvalidDataException("You must provide your password!");
+            }
+
+            std::string username = body["username"];
+            std::string rawPassword = body["password"];
+
+            // Uniqueness Check
+            if (repo.getUserByUsername(username) != nullptr) {
+                throw InvalidDataException("Username already exists!");
+            }
+
+            // Password Hashing (Security)
+            std::string hashedPassword = picosha2::hash256_hex_string(rawPassword);
+            
+            User newUser(username, hashedPassword, "client");
+            repo.addUser(newUser);
+
+            ApiResponse<std::string> apiResponse(true, "Registration complete", "You have successfully registered!");
+            crow::response res(apiResponse.toJson().dump());
+            res.code = 201;
+            res.add_header("Content-Type", "application/json");
+            return res;
+        }
+        catch (const InvalidDataException& e) {
+            ApiResponse<std::string> errorResponse(false, "Data Error", e.what());
+            crow::response res(errorResponse.toJson().dump());
+            res.code = 400; 
             res.add_header("Content-Type", "application/json");
             return res;
         }

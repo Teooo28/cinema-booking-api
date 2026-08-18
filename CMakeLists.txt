@@ -37,6 +37,14 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+# 5. Header-only SHA256 Hashing Library
+FetchContent_Declare(
+    picosha2
+    GIT_REPOSITORY https://github.com/okdshin/PicoSHA2.git
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(picosha2)
+
 set(CROW_BUILD_EXAMPLES OFF CACHE BOOL "Skip Crow Examples" FORCE)
 set(CROW_BUILD_TESTS OFF CACHE BOOL "Skip Crow Tests" FORCE)
 
@@ -69,7 +77,7 @@ add_executable(${PROJECT_NAME} ${SOURCES}
 # oprim avertismentele strict pentru motorul SQLite
 set_source_files_properties(src/sqlite3.c PROPERTIES COMPILE_FLAGS "-w")
 
-target_include_directories(${PROJECT_NAME} PUBLIC include)
+target_include_directories(${PROJECT_NAME} PUBLIC include ${picosha2_SOURCE_DIR})
 
 if(WIN32)
     # Suntem pe Windows, legăm librăriile specifice de rețea (Windows Sockets)
@@ -135,7 +143,7 @@ add_executable(run_tests
     src/Movie2D.cpp
 )
 
-target_include_directories(run_tests PUBLIC include)
+target_include_directories(run_tests PUBLIC include ${picosha2_SOURCE_DIR}) 
 target_link_libraries(run_tests PRIVATE gtest gtest_main nlohmann_json::nlohmann_json)
 
 add_test(NAME CoreLogicTests COMMAND run_tests)
