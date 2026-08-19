@@ -78,6 +78,8 @@ set(SOURCES
     src/DiscountStrategy.cpp
     src/CinemaRepository.cpp
     src/sqlite3.c
+    src/AuthController.cpp
+    src/MovieController.cpp
 )
 add_executable(${PROJECT_NAME} ${SOURCES}
     include/CinemaRepository.h)
