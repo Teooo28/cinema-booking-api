@@ -55,6 +55,25 @@ int main() {
     // POST /movies/<id>/book - Process ticket reservation
     CROW_ROUTE(app, "/movies/<int>/book").methods(crow::HTTPMethod::POST)([&repo, &activeReservations, &reservationsMutex](const crow::request& req, int movieId) {
         try {
+            // JWT Authentication Middleware
+            std::string authHeader = req.get_header_value("Authorization");
+            if (authHeader.empty() || authHeader.substr(0, 7) != "Bearer ") {
+                throw UnauthorizedException("Missing or invalid Authorization header!");
+            }
+
+            std::string tokenString = authHeader.substr(7);
+            try {
+                auto decodedToken = jwt::decode(tokenString);
+                auto verifier = jwt::verify()
+                    .allow_algorithm(jwt::algorithm::hs256{"SUPER_SECRET_KEY_123"})
+                    .with_issuer("cinema_api");
+                
+                verifier.verify(decodedToken);
+            } 
+            catch (const std::exception& e) {
+                throw UnauthorizedException("Invalid or expired token!");
+            }
+
             auto body = nlohmann::json::parse(req.body);
 
             if (!body.contains("tickets")) {
@@ -100,6 +119,13 @@ int main() {
             return res;
 
         } 
+        catch (const UnauthorizedException& e) {
+            ApiResponse<std::string> errorResponse(false, "Authentication Failed", e.what());
+            crow::response res(errorResponse.toJson().dump());
+            res.code = 401; 
+            res.add_header("Content-Type", "application/json");
+            return res;
+        }
         catch (const InvalidDataException& e) {
             ApiResponse<std::string> errorResponse(false, "Data Error", e.what());
             crow::response res(errorResponse.toJson().dump());
