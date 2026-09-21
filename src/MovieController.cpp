@@ -1,4 +1,5 @@
 #include "MovieController.h"
+#include "EventFactory.h"
 
 void MovieController::registerRoutes(
     crow::SimpleApp& app, 
@@ -32,6 +33,91 @@ void MovieController::registerRoutes(
         }
     });
     
+    // POST /movies - Add a new movie to the catalog (ADMIN ONLY)
+    CROW_ROUTE(app, "/movies").methods(crow::HTTPMethod::POST)([&repo](const crow::request& req) {
+        try {
+            // JWT Middleware & Authentication
+            std::string authHeader = req.get_header_value("Authorization");
+            if (authHeader.empty() || authHeader.substr(0, 7) != "Bearer ") {
+                throw UnauthorizedException("Missing or invalid Authorization header!");
+            }
+
+            std::string tokenString = authHeader.substr(7);
+            auto decodedToken = jwt::decode(tokenString);
+
+            try {
+                auto verifier = jwt::verify()
+                    .allow_algorithm(jwt::algorithm::hs256{"SUPER_SECRET_KEY_123"})
+                    .with_issuer("cinema_api");
+                verifier.verify(decodedToken);
+            } catch (const std::exception& e) {
+                throw UnauthorizedException("Invalid or expired token!");
+            }
+
+            // Role-Based Access Control (RBAC) Verification
+            std::string userRole = decodedToken.get_payload_claim("role").as_string();
+            if (userRole != "admin") {
+                throw UnauthorizedException("Access denied! Administrator privileges required.");
+            }
+
+            // Request Payload Parsing & Validation
+            auto body = nlohmann::json::parse(req.body);
+            
+            if (!body.contains("type") || !body.contains("id") || !body.contains("title") || 
+                !body.contains("duration") || !body.contains("basePrice") || !body.contains("availableSeats")) {
+                throw InvalidDataException("Incomplete data. Required fields: type, id, title, duration, basePrice, availableSeats.");
+            }
+
+            std::string type = body["type"];
+            int id = body["id"];
+            std::string title = body["title"];
+            int duration = body["duration"];
+            double basePrice = body["basePrice"];
+            int availableSeats = body["availableSeats"];
+            
+            double glassesPrice = 0.0;
+            if (type == "3D" && body.contains("glassesPrice")) {
+                glassesPrice = body["glassesPrice"];
+            }
+
+            repo.addEvent(EventFactory::createEvent(type, id, title, duration, basePrice, availableSeats, glassesPrice));
+            
+            ApiResponse<std::string> apiResponse(true, "Resource Created", "Successfully added '" + title + "' to the catalog.");
+            crow::response res(apiResponse.toJson().dump());
+            res.code = 201;
+            res.add_header("Content-Type", "application/json");
+            return res;
+
+        } 
+        catch (const UnauthorizedException& e) {
+            ApiResponse<std::string> errorResponse(false, "Authorization Failed", e.what());
+            crow::response res(errorResponse.toJson().dump());
+            res.code = 401; 
+            res.add_header("Content-Type", "application/json");
+            return res;
+        }
+        catch (const InvalidDataException& e) {
+            ApiResponse<std::string> errorResponse(false, "Validation Error", e.what());
+            crow::response res(errorResponse.toJson().dump());
+            res.code = 400; 
+            res.add_header("Content-Type", "application/json");
+            return res;
+        } 
+        catch (const nlohmann::json::exception& e) {
+            ApiResponse<std::string> errorResponse(false, "Malformed JSON", "Please ensure the request body is valid JSON.");
+            crow::response res(errorResponse.toJson().dump());
+            res.code = 400;
+            res.add_header("Content-Type", "application/json");
+            return res;
+        }
+        catch (const std::exception& e) {
+            ApiResponse<std::string> errorResponse(false, "Internal Server Error", "An unexpected error occurred.");
+            crow::response res(errorResponse.toJson().dump());
+            res.code = 500;
+            res.add_header("Content-Type", "application/json");
+            return res;
+        }
+    });
 
     // POST /movies/<id>/book - Process ticket reservation
     CROW_ROUTE(app, "/movies/<int>/book").methods(crow::HTTPMethod::POST)([&repo, &activeReservations, &reservationsMutex](const crow::request& req, int movieId) {

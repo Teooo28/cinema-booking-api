@@ -14,10 +14,6 @@ int main() {
     // In-memory registry: Reservation Code -> {Movie_ID, Ticket_Count}
     std::unordered_map<std::string, std::pair<int, int>> activeReservations;
     std::mutex reservationsMutex;
-    
-    // Populate the database with initial test events
-    repo.addEvent(EventFactory::createEvent("2D", 1, "Interstellar", 169, 30.0, 100, 0.0));
-    repo.addEvent(EventFactory::createEvent("3D", 2, "Avatar", 192, 40.0, 50, 15.0));
 
     // Delegate routing logic to Controllers (MVC Pattern)
     AuthController::registerRoutes(app, repo);
