@@ -146,38 +146,47 @@ void MovieController::registerRoutes(
             if (!body.contains("tickets")) {
                 throw InvalidDataException("You must provide the number of tickets!");
             }
-            int requestedTickets = body["tickets"];
+            int adultTickets = 0;
+            int studentTickets = 0;
+
+            if (body["tickets"].contains("adult")) {
+                adultTickets = body["tickets"]["adult"];
+            }
+            if (body["tickets"].contains("student")) {
+                studentTickets = body["tickets"]["student"];
+            }
+            int totalRequestedTickets = adultTickets + studentTickets;
+            if (totalRequestedTickets <= 0) {
+                throw InvalidDataException("You must select at least one ticket to proceed!");
+            }
 
             Event* targetMovie = repo.getEventById(movieId);
             if (!targetMovie) {
                 throw EventNotFoundException("Movie with the provided ID does not exist!");
             }
 
-            // Determine the business logic strategy dynamically based on user status
-            std::shared_ptr<DiscountStrategy> appliedStrategy;
-            if (body.contains("status") && body["status"] == "student") {
-                appliedStrategy = std::make_shared<StudentDiscount>();
-            } else {
-                appliedStrategy = std::make_shared<NoDiscount>(); 
-            }
+            auto adultStrategy = std::make_shared<NoDiscount>();
+            auto studentStrategy = std::make_shared<StudentDiscount>();
+
+            double adultPriceTotal = targetMovie->getFinalPrice(adultStrategy) * adultTickets;
+            double studentPriceTotal = targetMovie->getFinalPrice(studentStrategy) * studentTickets;
+
+            double totalPayment = adultPriceTotal + studentPriceTotal;
 
             // Critical section: lock concurrent access to guarantee transaction consistency (RAM + DB + History)
             std::lock_guard<std::mutex> lock(reservationsMutex);
             
-            targetMovie->bookSeats(requestedTickets);
+            targetMovie->bookSeats(totalRequestedTickets);
             repo.updateEvent(targetMovie); 
 
             int randomNum = rand() % 9000 + 1000;
             std::string reservationCode = "#TKT-" + std::to_string(randomNum);
-            activeReservations[reservationCode] = {movieId, requestedTickets};
-
-            // Final calculation applying the Strategy Design Pattern dynamically
-            double totalPayment = targetMovie->getFinalPrice(appliedStrategy) * requestedTickets;
+            activeReservations[reservationCode] = {movieId, totalRequestedTickets};
 
             std::stringstream priceStream;
             priceStream << std::fixed << std::setprecision(2) << totalPayment;
-            std::string ticketWord = (requestedTickets == 1) ? " ticket" : " tickets";
-            std::string message = "You have successfully booked " + std::to_string(requestedTickets) + ticketWord +
+            std::string ticketWord = (totalRequestedTickets == 1) ? " ticket" : " tickets";
+            std::string message = "You have successfully booked " + std::to_string(totalRequestedTickets) + ticketWord +
                                   ". Total payment: " + priceStream.str() + " RON. Entry code: " + reservationCode;
 
             ApiResponse<std::string> apiResponse(true, "Booking Confirmed", message);
