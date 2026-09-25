@@ -1,11 +1,5 @@
 # Cinema Booking Web API
 
-![C++](https://img.shields.io/badge/C++-20-blue.svg?style=flat&logo=c%2B%2B)
-![CMake](https://img.shields.io/badge/Build-CMake-lightgrey.svg?style=flat&logo=cmake)
-![Crow](https://img.shields.io/badge/Framework-Crow_HTTP-darkred.svg)
-![SQLite3](https://img.shields.io/badge/Database-SQLite3-003B57.svg?style=flat&logo=sqlite)
-![Security](https://img.shields.io/badge/Security-JWT_%7C_RBAC-green.svg)
-
 ## Executive Summary
 A robust, multithreaded RESTful API built in modern C++ for managing cinema reservations. This project transitions traditional OOP concepts into a fully functional web backend, featuring stateless JWT authentication, Role-Based Access Control (RBAC), thread-safe database transactions, and dynamic pricing models.
 
