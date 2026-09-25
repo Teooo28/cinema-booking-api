@@ -1,92 +1,104 @@
-# Sistem de Rezervari Cinema - Web API
+# Cinema Booking Web API
 
-### 1. Descrierea Proiectului
-Acest proiect este o aplicatie backend C++ creata pentru a gestiona sistemul de rezervari al unui cinematograf. Sistemul ruleaza ca un Web API (folosind framework-ul Crow), permitand interogarea filmelor, cumpararea de bilete si anularea rezervarilor prin cereri HTTP. Proiectul pune in practica concepte avansate de Programare Orientata pe Obiecte (POO), Design Patterns si persistenta datelor folosind o baza de date SQLite.
+![C++](https://img.shields.io/badge/C++-20-blue.svg?style=flat&logo=c%2B%2B)
+![CMake](https://img.shields.io/badge/Build-CMake-lightgrey.svg?style=flat&logo=cmake)
+![Crow](https://img.shields.io/badge/Framework-Crow_HTTP-darkred.svg)
+![SQLite3](https://img.shields.io/badge/Database-SQLite3-003B57.svg?style=flat&logo=sqlite)
+![Security](https://img.shields.io/badge/Security-JWT_%7C_RBAC-green.svg)
 
-### 2. Structura Ierarhica a Proiectului si Design Patterns
+## Executive Summary
+A robust, multithreaded RESTful API built in modern C++ for managing cinema reservations. This project transitions traditional OOP concepts into a fully functional web backend, featuring stateless JWT authentication, Role-Based Access Control (RBAC), thread-safe database transactions, and dynamic pricing models.
 
-Sistemul are codul impartit logic, folosind principii arhitecturale clare:
+Designed with a focus on clean architecture and scalability, the API handles mixed-cart bookings, automatic inventory synchronization, and secure ticket cancellations.
 
-**Ierarhia de Baza (Filme)**
-```text
-Event (Abstracta)
- ├── Movie2D
- └── Movie3D
-```
-* **Event:** Clasa de baza de la care pleaca ierarhia. Contine datele comune (ID, titlu, pret de baza, locuri disponibile) si o variabila statica `totalEventsCreated` pentru a tine evidenta globala a tuturor instantelor generate in sistem, accesibila prin metoda statica `static int getTotalEventsCreated()`. Aici este definita metoda virtuala `getFinalPrice()`.
-* **Movie2D & Movie3D:** Clase derivate care suprascriu calculul pretului (ex: `Movie3D` adauga o taxa suplimentara pentru ochelari).
+## Architecture & Design Patterns
+The system is built upon strict software engineering principles to ensure maintainability and separation of concerns:
 
-**Design Patterns Implementate**
-```text
-DiscountStrategy (Interfata)
- ├── NoDiscount
- └── StudentDiscount
-```
-* **Strategy Pattern:** Implementat prin interfata `DiscountStrategy`. Permite schimbarea dinamica a modului in care se calculeaza pretul (ex: aplicarea reducerii pentru studenti) injectand o clasa diferita la runtime, fara a modifica logica clasei `Event` si fara a folosi instructiuni `if` complexe.
-* **Factory Pattern:** Clasa `EventFactory` este responsabila pentru crearea instantelor corecte de filme (2D sau 3D), ascunzand logica de instantiere de restul programului.
+* **MVC (Model-View-Controller):** Routing logic is delegated to specific controllers (`AuthController`, `MovieController`), keeping the entry point (`main.cpp`) clean and acting merely as a dispatcher.
+* **Strategy Pattern:** Implemented via the `DiscountStrategy` interface (`NoDiscount`, `StudentDiscount`). It powers a polymorphic pricing engine capable of calculating nested, mixed-cart payloads at runtime without complex `if/else` chains.
+* **Factory Pattern:** The `EventFactory` encapsulates the instantiation logic for polymorphic entities (`Movie2D`, `Movie3D`), essential for the dynamic, admin-only movie creation endpoint.
+* **Repository Pattern:** `CinemaRepository` abstracts all SQLite persistence logic, utilizing *Upsert* mechanisms to seamlessly sync in-memory states with disk storage upon server restarts.
 
-**Clase de Management si Utilitare**
-* **CinemaRepository:** Gestioneaza stocarea datelor. Sincronizeaza datele din memoria RAM (un `std::vector<std::unique_ptr<Event>>`) cu hard disk-ul, executand interogari SQL (INSERT, UPDATE) prin SQLite.
-* **ApiResponse\<T\>:** O clasa *Template* utilizata pentru a standardiza absolut toate raspunsurile trimise catre client sub forma unui pachet JSON uniform (succes, mesaj, date).
-* **ExceptiiCustom:** Clase derivate din `std::exception` create pentru a gestiona erorile de business (`InvalidDataException`, `EventNotFoundException`).
+## Key Features
 
-**Integrarea Bibliotecilor Externe**
-* **Crow (C++ Microframework):** Utilizat pentru a expune functionalitatile claselor pe internet. Gestioneaza un server HTTP multithreaded si rute RESTful (GET, POST, DELETE).
-* **SQLite3:** Baza de date relationala integrata direct in aplicatie (fara server separat). Clasa `CinemaRepository` converteste obiectele C++ in comenzi SQL (INSERT, UPDATE) pentru a stoca si actualiza inventarul biletelor pe disc.
-* **Nlohmann/json:** Utilizata pentru parsarea si construirea pachetelor de date complexe care circula pe retea (serializare/deserializare intre obiecte C++ si format text web).
+* **Advanced Authentication & RBAC:** Secures sensitive endpoints using JSON Web Tokens (HS256 signature). Enforces strict Role-Based Access Control (Admin vs. Client privileges).
+* **Modern C++ Memory Management:** Zero memory leaks. Utilizes smart pointers (`std::unique_ptr`, `std::shared_ptr`) for resource lifecycle management (RAII).
+* **Thread-Safe Transactions:** Employs `std::lock_guard` in critical sections (e.g., ticket purchasing, cancellations) to prevent race conditions in a multithreaded server environment.
+* **Standardized API Responses:** Wraps all outgoing HTTP responses in a generic `ApiResponse` template for consistent, predictable JSON structures across the frontend.
+* **Defensive Programming:** Comprehensive exception handling (`InvalidDataException`, `UnauthorizedException`) mapped to proper HTTP status codes (400, 401, 404, 500).
 
-### 3. Concepte POO Implementate
+## Tech Stack
+* **Language:** C++20
+* **Web Framework:** [Crow](https://crowcpp.org/) (Multithreaded C++ Microframework)
+* **Database:** SQLite3 (Embedded Relational DB)
+* **Serialization:** [nlohmann/json](https://github.com/nlohmann/json) (JSON for Modern C++)
+* **Security:** `jwt-cpp` & `picosha2` (Token generation, validation, and payload decoding)
+* **Build System:** CMake
 
-* **Polimorfism la Runtime**
-    * **Metode Virtuale:** Functia `getFinalPrice()` se comporta diferit in functie de tipul obiectului (Movie2D vs Movie3D). Sistemul calculeaza costurile automat prin polimorfism.
-    * **Injectia Dependentelor:** Interfata `DiscountStrategy` este apelata polimorfic in interiorul functiei de pret a evenimentului.
-* **Incapsulare si Abstractizarea Datelor**
-    * S-a respectat principiul ascunderii datelor. Atributele sensibile ale filmelor sunt `private` sau `protected`, fiind modificate doar prin metode valide (ex: functia `bookSeats()` valideaza numarul de bilete inainte de a scadea locurile).
-* **Gestiunea Moderna a Resurselor (Smart Pointers)**
-    * Spre deosebire de gestionarea manuala a memoriei, acest proiect previne scurgerile de memorie (*memory leaks*) folosind **pointeri inteligenti** din standardul C++ modern: `std::unique_ptr` pentru stocarea unica a evenimentelor in Repository si `std::shared_ptr` pentru partajarea strategiilor de discount.
+## API Endpoints Documentation
 
-### 4. Functionalitati si Exemple de Utilizare (API Endpoints)
+### 1. Authentication
+| Method | Endpoint | Description | Access |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/register` | Register a new user (default role: `client`). | Public |
+| `POST` | `/login` | Authenticate user and receive JWT. | Public |
 
-Aplicatia expune urmatoarele rute RESTful care pot fi accesate din terminal folosind utilitarul `curl`:
+### 2. Catalog Management
+| Method | Endpoint | Description | Access |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/movies` | Fetch all available movies, dynamic prices, and seats. | Public |
+| `POST` | `/movies` | Add a new movie to the database (2D/3D). | **Admin Only** |
 
-**1. Afisarea filmelor (GET `/movies`)**
-Returneaza un array JSON cu toate filmele disponibile, incluzand preturile dinamice si locurile ramase in sala.
-```bash
-curl -X GET http://localhost:8080/movies
-```
+### 3. Booking & Operations
+| Method | Endpoint | Description | Access |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/movies/{id}/book` | Book tickets. Supports nested JSON for mixed carts (e.g., Adults + Students). | Authenticated |
+| `DELETE` | `/cancel` | Cancel a reservation via ticket code and refund seats to the database. | Authenticated |
 
-**2. Rezervarea biletelor (POST `/movies/<id>/book`)**
-Clientul trimite un JSON cu numarul de bilete dorite si statusul (optional, pentru discount). Sistemul aplica reducerea, verifica locurile, salveaza in SQLite si genereaza un Cod Unic de Rezervare.
-*Exemplu comanda (2 bilete pentru student la filmul cu ID 2):*
-```bash
-curl -X POST http://localhost:8080/movies/2/book -H "Content-Type: application/json" -d "{\"bilete\": 2, \"status\": \"student\"}"
-```
-*Raspunsul serverului:*
+## Payload Examples
+
+**Mixed-Cart Booking (`POST /movies/{id}/book`):**
 ```json
-{"data":"Ai rezervat 2 bilete. Total de plata: 70.00 RON. Cod intrare: #TKT-4892","message":"Rezervare Confirmata","success":true}
+{
+    "tickets": {
+        "adult": 2,
+        "student": 1
+    }
+}
 ```
 
-**3. Anularea rezervarii (DELETE `/cancel`)**
-Clientul trimite doar codul primit pe bilet. Sistemul consulta registrul intern (`std::unordered_map`), identifica rezervarea, returneaza locurile in baza de date si invalideaza codul pentru a preveni fraudele.
-*Exemplu comanda:*
-```bash
-curl -X DELETE http://localhost:8080/cancel -H "Content-Type: application/json" -d "{\"cod_intrare\": \"#TKT-4892\"}"
-```
-*Raspunsul serverului:*
+*Server calculates the dynamic polymorphic price and returns:*
+
 ```json
-{"data":"Au fost returnate 2 locuri pentru codul #TKT-4892","message":"Anulare reusita","success":true}
+{
+    "success": true,
+    "message": "Booking Confirmed",
+    "data": "You have successfully booked 3 tickets. Total payment: 102.50 RON. Entry code: #TKT-1041"
+}
 ```
 
-### 5. Rulare si Testare
+## Build & Run Instructions
 
-Proiectul foloseste **CMake** pentru build. Necesita un compilator modern de C++ (minim C++14).
-* Librarii externe integrate: `Crow` (pentru serverul web HTTP), `nlohmann/json` (pentru parsarea JSON) si `sqlite3` (pentru baza de date).
+**Prerequisites:**
 
-### 6. Fluxul Aplicatiei
+* A modern C++ compiler (MSVC, GCC, or Clang)
+* CMake (3.15+)
 
-La rularea executabilului, fluxul este urmatorul:
-1. Se instantiaza baza de date SQLite. Daca fisierul `cinema.db` nu exista pe disc, este creat automat.
-2. Serverul Crow porneste in regim *multithreaded* pe portul `8080` si asculta cereri din internet.
-3. La primirea unui request (ex: POST rezervare), input-ul este validat riguros (se verifica sintaxa JSON si regulile de business).
-4. Daca datele sunt invalide (ex: se cer mai multe bilete decat capacitatea), o exceptie custom este aruncata, prinsa in blocul `try-catch`, iar serverul raspunde elegant cu un cod HTTP 400 (Bad Request).
-5. Daca tranzactia are succes, modificarea are loc in RAM, se noteaza in registrul aplicatiei, iar `CinemaRepository` executa comanda SQL de UPDATE pentru a stoca permanent noul numar de locuri.
+**Build Steps:**
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/Teooo28/cinema-booking-api.git
+cd cinema-booking-api
+
+# 2. Generate build files
+cmake -S . -B build
+
+# 3. Build the executable
+cmake --build build
+
+# 4. Run the server
+./build/oop.exe   # Windows
+# or
+./build/oop       # Linux/macOS
+```
